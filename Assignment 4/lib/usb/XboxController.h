@@ -1,53 +1,65 @@
-#ifndef __XboxController_h__
-#define __XboxController_h__
+#ifndef XBOXCONTROLLER_H
+#define XBOXCONTROLLER_H
 
-#include <vector>
 #include <libusb-1.0/libusb.h>
-#include "ControllerStatus.h"
-#include "Controller.h"
-#include <stdint.h>
+#include <ControllerStatus.h>
+#include <vector>
 
+#define OFF 0x00
+#define ALL_BLINKING 0x01
+#define FLASH_1 0x02
+#define FLASH_2 0x03
+#define FLASH_3 0x04
+#define FLASH_4 0x05
+#define ON_1 0x06
+#define ON_2 0x07
+#define ON_3 0x08
+#define ON_4 0x09
+#define ROTATING 0x0a
+#define BLINKING 0x0b
+#define SLOW_BLINKING 0x0c
+#define ALTERNATING 0x0d
 
-using namespace std;
-class XboxController: public Controller
+class XboxController
 {
-    public: static vector<Controller *> getAll(vector<Controller*> controllers);
+public:
+	static std::vector<XboxController *> getAll(std::vector<XboxController *> controllers);
 
-    public: void startMonitoring();
+	void startMonitoring();
 
-    public: void stopMonitoring();
+	void stopMonitoring();
 
-    public: void monitor();
+	void monitor();
 
-    public: void rumbleMax();
+	void rumbleMax();
 
-    public: void rumbleVariable(unsigned char rumble);
+	void rumbleVariable(unsigned char rumble);
 
-    public: void rumbleOff();
+	void rumbleOff();
 
-    public: void setLeds(unsigned char mode);
+	void setLeds(unsigned char mode);
 
-    public: void close();
+	void close();
 
-    bool isClosed();
+	bool isClosed();
 
-    void setGeneralCallback(void (*generalCallback)(Controller *, ControllerStatus *, ControllerStatus *));
+	void setGeneralCallback(void (*generalCallback)(XboxController *, ControllerStatus *, ControllerStatus *));
 
-    uint8_t getControllerId();
+	uint8_t getControllerId();
 
 private:
-    XboxController(libusb_device_handle * h, int serialNumber);
+	XboxController(libusb_device_handle * h, int serialNumber);
 
-    ControllerStatus * previous;
-    ControllerStatus * current;
+	ControllerStatus * previous;
+	ControllerStatus * current;
 
-    libusb_device_handle * handle;
+	libusb_device_handle * handle;
 
-    void (*generalCallback)(Controller *, ControllerStatus *, ControllerStatus *);
+	void (*generalCallback)(XboxController *, ControllerStatus *, ControllerStatus *);
 
-    volatile bool monitoring;
+	volatile bool monitoring;
 
-    volatile bool closed;
+	volatile bool closed;
 
     volatile bool doneClosing;
 

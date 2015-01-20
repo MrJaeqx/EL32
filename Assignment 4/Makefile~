@@ -1,7 +1,6 @@
 target:
 	cd lib/shm; make target
 	cd lib/usb; make target
-	cd gamepad; make target
 	@echo "Juw pils"
 
 host:

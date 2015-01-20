@@ -1,6 +1,6 @@
 CXXFLAGS= -I.
 LIBS=-lrt
-SOURCES=XboxControllerStatus.cpp XboxController.cpp XboxControllerOfficial.cpp ControllerStatus.cpp Controller.cpp
+SOURCES=ControllerStatus.cpp XboxController.cpp
 OUTPUT=${SOURCES:.cpp=.o}
 OUTPUTLIB=libusb.a
 

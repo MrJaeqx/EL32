@@ -1,5 +1,4 @@
-#include "XboxController.h"
-#include "XboxControllerStatus.h"
+#include <XboxController.h>
 #include <cstddef>
 #include <stdio.h>
 #include <stdint.h>
@@ -7,9 +6,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <vector>
-#include <iostream>
-
-using namespace std;
+using std::vector;
 
 const uint16_t xboxControllerVendorId = 0x045e;
 const uint16_t xboxControllerProductId = 0x028e;
@@ -17,11 +14,9 @@ const uint16_t xboxControllerProductId = 0x028e;
 const unsigned char endpointIN = 0x81;
 const unsigned char endpointOUT = 0x02;
 
-static uint16_t controllerIds = 0;
-
 #define MAXRUMBLE { 0x00, 0x08, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00 };
 #define NORUMBLE { 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-#define VARRUMBLE1 { 0x00, 0x08, 0x00,
+#define VARRUMBLE1 { 0x00, 0x08, 0x00, 
 #define VARRUMBLE2 , 0xff, 0x00, 0x00, 0x00 };
 
 void * monitorController(void * arg);
@@ -32,7 +27,7 @@ XboxController::XboxController(libusb_device_handle * h, int serialNumber) :
     handle = h;
 }
 
-vector<Controller *> XboxController::getAll(vector<Controller*> controllers)
+vector<XboxController *> XboxController::getAll(vector<XboxController*> controllers)
 {
     libusb_init (NULL);
 
@@ -73,15 +68,15 @@ vector<Controller *> XboxController::getAll(vector<Controller*> controllers)
 
 void * monitorController(void * arg)
 {
-    XboxController * xboxController = (XboxController *) arg;
-    xboxController->monitor();
-    pthread_detach (pthread_self());return
+	XboxController * xboxController = (XboxController *) arg;
+	xboxController->monitor();
+	pthread_detach (pthread_self());return
 NULL	;
 }
 
 void XboxController::startMonitoring()
 {
-    if (monitoring == false && closed == false) {
+	if (monitoring == false && closed == false) {
         printf("start monitoring\n");
         monitoring = true;
         pthread_t monitoringThread;
@@ -91,68 +86,64 @@ void XboxController::startMonitoring()
 
 void XboxController::stopMonitoring()
 {
-    monitoring = false;
+	monitoring = false;
 }
 
 void XboxController::setGeneralCallback(
-        void (*generalCallback)(Controller *, ControllerStatus *, ControllerStatus *))
+		void (*generalCallback)(XboxController *, ControllerStatus *, ControllerStatus *))
 {
-    this->generalCallback = generalCallback;
+	this->generalCallback = generalCallback;
 }
 
 void XboxController::rumbleMax()
 {
-    int transferred = 0;
-    unsigned char rumbleMax[] = MAXRUMBLE;
-    libusb_interrupt_transfer(handle, endpointOUT, rumbleMax, sizeof rumbleMax, &transferred, 0);
-    if (transferred != sizeof rumbleMax)
-    {
-        perror("Error while sending.");
-        close();
-    }
+	int transferred = 0;
+	unsigned char rumbleMax[] = MAXRUMBLE;
+	libusb_interrupt_transfer(handle, endpointOUT, rumbleMax, sizeof rumbleMax, &transferred, 0);
+	if (transferred != sizeof rumbleMax)
+	{
+		perror("Error while sending.");
+	}
 }
 
 void XboxController::rumbleVariable(unsigned char rumble)
 {
-    int transferred = 0;
-    unsigned char rumbleVariable[] = VARRUMBLE1 rumble VARRUMBLE2
-    libusb_interrupt_transfer(handle, endpointOUT, rumbleVariable, sizeof rumbleVariable, &transferred, 0);
-    if (transferred != sizeof rumbleVariable)
-    {
-        perror("Error while sending.");
-        close();
-    }
+	int transferred = 0;
+	unsigned char rumbleVariable[] = VARRUMBLE1 rumble VARRUMBLE2
+	libusb_interrupt_transfer(handle, endpointOUT, rumbleVariable, sizeof rumbleVariable, &transferred, 0);
+	if (transferred != sizeof rumbleVariable)
+	{
+		perror("Error while sending.");
+	}
 }
 
 void XboxController::rumbleOff()
 {
-    int transferred = 0;
-    unsigned char noRumble[] = NORUMBLE;
-    libusb_interrupt_transfer(handle, endpointOUT, noRumble, sizeof noRumble, &transferred, 0);
-    if (transferred != sizeof noRumble)
-    {
-        perror("Error while sending.");
-        close();
-    }
+	int transferred = 0;
+	unsigned char noRumble[] = NORUMBLE;
+	libusb_interrupt_transfer(handle, endpointOUT, noRumble, sizeof noRumble, &transferred, 0);
+	if (transferred != sizeof noRumble)
+	{
+		perror("Error while sending.");
+	}
 }
 
 void XboxController::close()
 {
-    closed = true;
+	closed = true;
     monitoring = false;
     libusb_close (handle);
 }
 
 void XboxController::setLeds(unsigned char mode)
 {
-    int transferred = 0;
-    unsigned char ledMessage[] = { 0x01, 0x03, mode };
-    libusb_interrupt_transfer(handle, endpointOUT, ledMessage, sizeof ledMessage, &transferred, 0);
-    if (transferred != sizeof ledMessage)
-    {
-        perror("Error while sending.");
-        close();
-    }
+	int transferred = 0;
+	unsigned char ledMessage[] = { 0x01, 0x03, mode };
+	libusb_interrupt_transfer(handle, endpointOUT, ledMessage, sizeof ledMessage, &transferred, 0);
+	if (transferred != sizeof ledMessage)
+	{
+		perror("Error while sending.");
+	}
 }
 
 bool XboxController::isClosed() {
@@ -165,47 +156,42 @@ uint8_t XboxController::getControllerId() {
 
 void XboxController::monitor()
 {
-    unsigned char inputReport[20];
-    int transferred = 0;
-    while (monitoring)
-    {
-        libusb_interrupt_transfer(handle, endpointIN, inputReport, sizeof inputReport, &transferred, 0);
-        current = XboxControllerStatus::create(inputReport);
-        if (current == NULL)
-        {
-            continue;
-        }
-        if (transferred != sizeof inputReport)
-        {
-            perror("Error while receiving.");
-            if (current != NULL && previous != NULL) {
-                close();
-            }
-            continue;
-        }
-        if (previous != NULL && generalCallback != NULL)
-        {
-            if (ControllerStatus::compare(previous, current))
-            {
-                generalCallback(this, previous, current);
-            }
-        }
-        if (previous != NULL)
-        {
-            delete previous;
-        }
+	unsigned char inputReport[20];
+	int transferred = 0;
+	while (monitoring)
+	{
+		libusb_interrupt_transfer(handle, endpointIN, inputReport, sizeof inputReport, &transferred, 0);
+		current = ControllerStatus::create(inputReport);
+		if (current == NULL)
+		{
+			continue;
+		}
+		if (transferred != sizeof inputReport)
+		{
+			perror("Error while receiving.");
+			continue;
+		}
+		if (previous != NULL && generalCallback != NULL)
+		{
+			//ControllerStatus::compareDebug(previous, current);
+			if (ControllerStatus::compare(previous, current))
+			{
+				generalCallback(this, previous, current);
+			}
+		}
+		if (previous != NULL)
+		{
+			delete previous;
+		}
 
-        previous = current;
-        usleep(10000); // sleep for 10 ms
-    }
-    if (previous != NULL)
-    {
-        delete previous;
-        previous = NULL;
-    }
-    current = NULL;
-
-    sleep(1);
-    doneClosing = true;
+		previous = current;
+		usleep(10000); // sleep for 10 ms 
+	}
+	if (previous != NULL)
+	{
+		delete previous;
+		previous = NULL;
+	}
+	current = NULL;
 }
 
