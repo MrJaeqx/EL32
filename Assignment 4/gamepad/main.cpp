@@ -5,10 +5,13 @@
 #include <stdlib.h>
 #include <XboxController.h>
 #include <ControllerStatus.h>
+#include <Semaphore.h>
+#include <SharedMemory.h>
 #include <sys/fcntl.h>
 #include <mqueue.h>
 #include <vector>
 #include <iostream>
+#include <sstream>
 using std::vector;
 using namespace std;
 
@@ -17,9 +20,25 @@ void generalCallback(XboxController * controller, ControllerStatus * previous, C
 void sendControllerUpdate();
 int clientId;
 vector<XboxController *> controllers;
+Semaphore * sem;
+SharedMemory * shm;
+
+int dPadUp, dPadDown, dPadLeft, dPadRight, startBtn, backBtn, lsP, rsP, lbBtn, rbBtn, xboxBtn, aBtn, bBtn, xBtn, yBtn;
+uint8_t lTrg, rTrg;
+int16_t lXaxis, lYaxis, rXaxis, rYaxis;
 
 int main(int argc, char* argv[]) {
     clientId = 0;
+    dPadUp = dPadDown = dPadLeft = dPadRight = startBtn = backBtn = lsP = rsP = lbBtn = rbBtn = xboxBtn = aBtn = bBtn = xBtn = yBtn = 0;
+    lTrg = rTrg = 0;
+    lXaxis = lYaxis = rXaxis = rYaxis = 0;
+
+    sem = new Semaphore("ShmSem");
+    sem->newSemaphore();
+    cout << "sem opened" << endl;
+
+    shm = new SharedMemory("Shm", 2048);
+    cout << "shm opened" << endl;
 
     controllers = XboxController::getAll(controllers);
     while(true) {
@@ -92,127 +111,158 @@ void sendControllerUpdate() {
 
 void generalCallback(XboxController * caller, ControllerStatus * previous, ControllerStatus * current)
 {
+    sem->waitSemaphore();
 
     cout << dec << (int) caller->getControllerId() << " "; 
 
     if (!previous->getButtonA() && current->getButtonA())
     {
+        aBtn = 1;
         cout << "A pressed" << endl;
     }
     else if (previous->getButtonA() && !current->getButtonA())
     {
+        aBtn = 0;
         cout << "A released" << endl;
     }
     else if (!previous->getButtonX() && current->getButtonX())
     {
+        xBtn = 1;
         cout << "X pressed" << endl;
     }
     else if (previous->getButtonX() && !current->getButtonX())
     {
+        xBtn = 0;
         cout << "X released" << endl;
     }
     else if (!previous->getButtonY() && current->getButtonY())
     {
+        yBtn = 1;
         cout << "Y pressed" << endl;
     }
     else if (previous->getButtonY() && !current->getButtonY())
     {
+        yBtn = 0;
         cout << "Y released" << endl;
     }
     else if (!previous->getButtonB() && current->getButtonB())
     {
+        bBtn = 1;
         cout << "B pressed" << endl;
     }
     else if (previous->getButtonB() && !current->getButtonB())
     {
+        bBtn = 0;
         cout << "B released" << endl;
     }
     else if (!previous->getDPadUp() && current->getDPadUp())
     {
+        dPadUp = 1;
         cout << "DPad Up pressed" << endl;
     }
     else if (previous->getDPadUp() && !current->getDPadUp())
     {
+        dPadUp = 0;
         cout << "DPad Up released" << endl;
     }
     else if (!previous->getDPadDown() && current->getDPadDown())
     {
+        dPadDown = 1;
         cout << "DPad Down pressed" << endl;
     }
     else if (previous->getDPadDown() && !current->getDPadDown())
     {
+        dPadDown = 0;
         cout << "DPad Down released" << endl;
     }
     else if (!previous->getDPadLeft() && current->getDPadLeft())
     {
+        dPadLeft = 1;
         cout << "DPad Left pressed" << endl;
     }
     else if (previous->getDPadLeft() && !current->getDPadLeft())
     {
+        dPadLeft = 0;
         cout << "DPad Left released" << endl;
     }
     else if (!previous->getDPadRight() && current->getDPadRight())
     {
+        dPadRight = 1;
         cout << "DPad Right pressed" << endl;
     }
     else if (previous->getDPadRight() && !current->getDPadRight())
     {
+        dPadRight = 0;
         cout << "DPad Right released" << endl;
     }
     else if (!previous->getStartButton() && current->getStartButton())
     {
+        startBtn = 1;
         cout << "Start pressed" << endl;
     }
     else if (previous->getStartButton() && !current->getStartButton())
     {
+        startBtn= 0;
         cout << "Start released" << endl;
     }
     else if (!previous->getBackButton() && current->getBackButton())
     {
+        backBtn = 1;
         cout << "Back pressed" << endl;
     }
     else if (previous->getBackButton() && !current->getBackButton())
     {
+        backBtn = 0;
         cout << "Back released" << endl;
     }
     else if (!previous->getLeftStickPress() && current->getLeftStickPress())
     {
+        lsP = 1;
         cout << "Left stick pressed" << endl;
     }
     else if (previous->getLeftStickPress() && !current->getLeftStickPress())
     {
+        lsP = 0;
         cout << "Left stick released" << endl;
     }
     else if (!previous->getRightStickPress() && current->getRightStickPress())
     {
+        rsP = 1;
         cout << "Right stick pressed" << endl;
     }
     else if (previous->getRightStickPress() && !current->getRightStickPress())
     {
+        rsP = 0;
         cout << "Right stick released" << endl;
     }
     else if (!previous->getButtonLB() && current->getButtonLB())
     {
+        lbBtn = 1;
         cout << "Left back button pressed" << endl;
     }
     else if (previous->getButtonLB() && !current->getButtonLB())
     {
+        lbBtn = 0;
         cout << "Left back button released" << endl;
     }
     else if (!previous->getButtonRB() && current->getButtonRB())
     {
+        rbBtn = 1;
         cout << "Right back button pressed" << endl;
     }
     else if (previous->getButtonRB() && !current->getButtonRB())
     {
+        rbBtn = 0;
         cout << "Right back button released" << endl;
     }
     else if (!previous->getButtonXboxButton() && current->getButtonXboxButton())
     {
+        xboxBtn = 1;
         cout << "Xbox button pressed" << endl;
     }
     else if (previous->getButtonXboxButton() && !current->getButtonXboxButton())
     {
+        xboxBtn = 0;
         cout << "Xbox button released" << endl;
     }
     else if (previous->getLeftTrigger() != current->getLeftTrigger())
@@ -239,5 +289,40 @@ void generalCallback(XboxController * caller, ControllerStatus * previous, Contr
     {
         cout << "Right stick y axis: " << hex << (int16_t) current->getRightStickYAxis() << endl;
     }
+
+    stringstream ss;
+
+    ss << "{";
+        ss << "'dpad':{";
+            ss << "'up':" << dPadUp << ",";
+            ss << "'down':" << dPadDown << ",";
+            ss << "'left':" << dPadLeft << ",";
+            ss << "'right':" << dPadRight << "},";
+        ss << "'start:'" << startBtn << ",";
+        ss << "'back:'" << backBtn << ",";
+        ss << "'xbox:'" << xboxBtn << ",";
+        ss << "'leftstick':{";
+            ss << "'press:'" << lsP << ",";
+            ss << "'x:'" << hex << (int16_t) current->getLeftStickXAxis() << ",";
+            ss << "'y:'" << hex << (int16_t) current->getLeftStickYAxis() << "},";
+        ss << "'rightstick':{";
+            ss << "'press:'" << rsP << ",";
+            ss << "'x:'" << hex << (int16_t) current->getRightStickXAxis() << ",";
+            ss << "'y:'" << hex << (int16_t) current->getRightStickYAxis() << "},";
+        ss << "'a:'" << aBtn << ",";
+        ss << "'b:'" << bBtn << ",";
+        ss << "'x:'" << xBtn << ",";
+        ss << "'y:'" << yBtn << ",";
+        ss << "'leftback:'" << lbBtn << ",";
+        ss << "'rightback:'" << rbBtn << ",";
+        ss << "'lefttrigger:'" << hex << (int) current->getLeftTrigger() << ",";
+        ss << "'righttrigger:'" << hex << (int) current->getRightTrigger();
+    ss << "}" << endl;
+
+    string buf = ss.str();
+
+    shm->setData(buf.c_str());
+
+    sem->postSemaphore();
 
 }
