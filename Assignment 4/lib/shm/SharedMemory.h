@@ -3,6 +3,7 @@ public:
     SharedMemory(char * name, int size);
     SharedMemory(char * name);
     char * getData();
+    void setData(const char * data);
     void closeMemory();
     void unlink();
 private:

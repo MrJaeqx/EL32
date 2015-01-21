@@ -67,6 +67,10 @@ char * SharedMemory::getData() {
     return data;
 }
 
+void SharedMemory::setData(const char * data) {
+    strcpy(this->data,data);
+}
+    
 void SharedMemory::closeMemory() {
     int rtnval = close(shm_fd);
     if (rtnval != 0)
