@@ -29,6 +29,6 @@ int main(int argc, char* argv[]) {
 
 	    cout << "calling sempost" << endl;
 	    sem->postSemaphore();
-	    usleep(1000);
+	    usleep(1000000);
 	}
 }

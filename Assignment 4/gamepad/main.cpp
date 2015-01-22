@@ -17,95 +17,57 @@ using namespace std;
 
 
 void generalCallback(XboxController * controller, ControllerStatus * previous, ControllerStatus * current);
-void sendControllerUpdate();
 int clientId;
 vector<XboxController *> controllers;
 Semaphore * sem;
 SharedMemory * shm;
+pthread_t messageQueueListenerThread;
+struct mq_attr attr;
 
 int dPadUp, dPadDown, dPadLeft, dPadRight, startBtn, backBtn, lsP, rsP, lbBtn, rbBtn, xboxBtn, aBtn, bBtn, xBtn, yBtn;
 uint8_t lTrg, rTrg;
 int16_t lXaxis, lYaxis, rXaxis, rYaxis;
 
-int main(int argc, char* argv[]) {
-    clientId = 0;
-    dPadUp = dPadDown = dPadLeft = dPadRight = startBtn = backBtn = lsP = rsP = lbBtn = rbBtn = xboxBtn = aBtn = bBtn = xBtn = yBtn = 0;
-    lTrg = rTrg = 0;
-    lXaxis = lYaxis = rXaxis = rYaxis = 0;
 
-    sem = new Semaphore("ShmSem");
-    sem->newSemaphore();
-    cout << "sem opened" << endl;
 
-    shm = new SharedMemory("Shm", 2048);
-    cout << "shm opened" << endl;
-
-    controllers = XboxController::getAll(controllers);
-    while(true) {
-        controllers = XboxController::getAll(controllers);
-
-        for (unsigned int i = 0; i < controllers.size(); i++) {
-            if (controllers[i]->isClosed()) {
-                printf("closed\n");
-                controllers.erase(controllers.begin() + i);
-                sendControllerUpdate();
-            }
-        }
-        for (unsigned int i = 0; i < controllers.size(); i++) {
-            controllers[i]->setGeneralCallback(generalCallback);
-            controllers[i]->startMonitoring();
-        }
-
-		/*
-        int result = mq_receive(mqReceive, bufferReceive, BUFFERLENGTH, NULL);
-        if (result != -1) {
-            bufferReceive[result] = '\0';
-            cout << "msq received: " << bufferReceive << endl;
-            ServerToClientMessage* sm = new ServerToClientMessage();
-            sm = js.convertJsonToServerToClientMessage(bufferReceive);
-            if (sm->getClientId() != 0) {
-                clientId = sm->getClientId();
-                sendControllerUpdate();
-            }
-            vector<ControllerCommand *> controllerCommands;
-            controllerCommands = sm->getControllerCommands();
-
-            for (unsigned int i = 0; i < controllerCommands.size(); i++) {
-                for(unsigned int j = 0; j < controllers.size(); j++) {
-                    if(controllerCommands[i]->getControllerId() == controllers[j]->getControllerId())
-                    {
-                        controllers[j]->setLeds(controllerCommands[i]->getLedCircle());
-                        controllers[j]->rumbleVariable(controllerCommands[i]->getVibrate());
-                    }
-                }
-            }
-            cout << "msq received end" << endl;
-        }*/
+// message queue listener
+void* messageQueueListener(void* argument) {
+    
+    // read message queue and send to all clients
+    mqd_t messageQueueIDReceiver = mq_open("/MQ", O_RDONLY | O_CREAT, 0644, &attr);
+    if (messageQueueIDReceiver == (mqd_t)-1) {
+        perror("Receiver: mq_open()");
+        exit(1);
+    }       
+    
+    // buffer
+    char buffer[2048];      
+        
+    // loop
+    while(true){   
+        ssize_t bytes_read;
+        
+        // receive message, blocks till a new message is received
+        bytes_read = mq_receive(messageQueueIDReceiver, buffer, 2048, 0);                    
+        buffer[bytes_read] = '\0';  
+        
+        
+        std::cout << "Message Received :" << buffer << std::endl; 
+        
     }
 }
 
-void sendControllerUpdate() {
-    /*
-    cout << "Sending controller update" << endl;
-    ClientInput* ci = new ClientInput();
-    ci->setNumberControllers(controllers.size());
-    ci->setClientId(clientId);
-    for(unsigned int i = 0; i < controllers.size(); i++)
-    {
-        ControllerInfo* info = new ControllerInfo(controllers[i]->getControllerId(), false, false, false, DEFAULT);
-        ci->addControllerInfo(info);
+void sendMQUpdateToControllers(vector<XboxController *> ctrls, bool rumble, unsigned char ledMode) {
+    for (unsigned int i = 0; i < ctrls.size(); i++) {
+        if(rumble){
+            ctrls[i]->rumbleMax();
+        }
+        else
+        {
+            ctrls[i]->rumbleOff();
+        }   
+        ctrls[i]->setLeds(ledMode);
     }
-    ci->setSyncPlayers(true);
-    char buffer[BUFFERLENGTH];
-    string clientInputString = js.convertClientInputToJson(ci);
-    size_t clientInputLength = clientInputString.copy(buffer, clientInputString.size());
-    buffer[clientInputLength] = '\0';
-    cout << buffer << endl;
-    mq_send(mqSend, buffer, BUFFERLENGTH, 1);
-    */
-
-    //caller->rumbleMax();
-    //caller->setLeds(ROTATING);
     cout << "MQ Stuff" << endl;
 }
 
@@ -325,4 +287,72 @@ void generalCallback(XboxController * caller, ControllerStatus * previous, Contr
 
     sem->postSemaphore();
 
+}
+
+int main(int argc, char* argv[]) {
+    // set message queue attributes
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = 2048;
+    attr.mq_curmsgs = 0;  
+
+    clientId = 0;
+    dPadUp = dPadDown = dPadLeft = dPadRight = startBtn = backBtn = lsP = rsP = lbBtn = rbBtn = xboxBtn = aBtn = bBtn = xBtn = yBtn = 0;
+    lTrg = rTrg = 0;
+    lXaxis = lYaxis = rXaxis = rYaxis = 0;
+
+    sem = new Semaphore("ShmSem");
+    sem->newSemaphore();
+    cout << "sem opened" << endl;
+
+    shm = new SharedMemory("Shm", 2048);
+    cout << "shm opened" << endl;
+
+    // queue thread
+    if(pthread_create(&messageQueueListenerThread, NULL, messageQueueListener, NULL)) {     
+        perror("Error creating thread messageQueueListener");
+    }
+    cout << "mq thread made" << endl;
+
+    controllers = XboxController::getAll(controllers);
+    while(true) {
+        controllers = XboxController::getAll(controllers);
+
+        for (unsigned int i = 0; i < controllers.size(); i++) {
+            if (controllers[i]->isClosed()) {
+                printf("closed\n");
+                controllers.erase(controllers.begin() + i);
+            }
+        }
+        for (unsigned int i = 0; i < controllers.size(); i++) {
+            controllers[i]->setGeneralCallback(generalCallback);
+            controllers[i]->startMonitoring();
+        }
+
+        /*
+        int result = mq_receive(mqReceive, bufferReceive, BUFFERLENGTH, NULL);
+        if (result != -1) {
+            bufferReceive[result] = '\0';
+            cout << "msq received: " << bufferReceive << endl;
+            ServerToClientMessage* sm = new ServerToClientMessage();
+            sm = js.convertJsonToServerToClientMessage(bufferReceive);
+            if (sm->getClientId() != 0) {
+                clientId = sm->getClientId();
+                sendControllerUpdate();
+            }
+            vector<ControllerCommand *> controllerCommands;
+            controllerCommands = sm->getControllerCommands();
+
+            for (unsigned int i = 0; i < controllerCommands.size(); i++) {
+                for(unsigned int j = 0; j < controllers.size(); j++) {
+                    if(controllerCommands[i]->getControllerId() == controllers[j]->getControllerId())
+                    {
+                        controllers[j]->setLeds(controllerCommands[i]->getLedCircle());
+                        controllers[j]->rumbleVariable(controllerCommands[i]->getVibrate());
+                    }
+                }
+            }
+            cout << "msq received end" << endl;
+        }*/
+    }
 }
