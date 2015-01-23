@@ -5,34 +5,83 @@
 #include <stdlib.h>
 #include <mqueue.h>
 #include <iostream>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
 
 using namespace std;
 
-struct mq_attr attr;
+typedef struct
+{
+    // a data structure with 3 members
+    bool rumble;
+    unsigned char ledMode;
+} MQ_REQUEST_MESSAGE;
+
+static void 
+getattr (mqd_t mq_fd)
+{
+    struct mq_attr      attr;
+    int                 rtnval;
+    
+    rtnval = mq_getattr (mq_fd, &attr);
+    if (rtnval == -1)
+    {
+        perror ("mq_getattr() failed");
+    }
+    fprintf (stderr, "%d: mqdes=%d max=%ld size=%ld nrof=%ld\n",
+                getpid(), 
+                mq_fd, attr.mq_maxmsg, attr.mq_msgsize, attr.mq_curmsgs);
+}
 
 int main(int argc, char* argv[]) {
-	attr.mq_flags = 0;
-    attr.mq_maxmsg = 10;
-    attr.mq_msgsize = 2048;
-    attr.mq_curmsgs = 0;
+    mqd_t       mq_fd = -1;
+    struct      mq_attr attr;
+    int         rtnval = -1;
+    MQ_REQUEST_MESSAGE req;
 
-    mq_unlink("/MQ2");
-	mqd_t smqClientSend = mq_open("/MQ2", O_CREAT | O_WRONLY, 0666, &attr);
-    if (smqClientSend == (mqd_t)-1 || smqClientSend == NULL) {
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = sizeof (MQ_REQUEST_MESSAGE);
+
+    cout << "Content-Type: text/plain" << endl << endl;
+
+    string s = getenv("QUERY_STRING");
+    string delimiter = "&";
+    string r = s.substr(0, s.find(delimiter));
+    string l = s.substr(s.find(delimiter)+1, s.length());
+
+    req.rumble = false;
+    req.ledMode = 1;
+
+    if(r == "true")
+    {
+        req.rumble = true;
+    }
+    if(atoi(l.c_str()) > 0 && atoi(l.c_str()) < 6) {
+        req.ledMode = atoi(l.c_str());
+    }
+
+	mq_fd = mq_open("/MQ1337", O_WRONLY | O_CREAT, 0666, &attr);
+    if (mq_fd == (mqd_t)-1) {
         perror("mq_open()");
         exit(1);
     }
-    cout << "mq opened" << endl;
 
+    getattr(mq_fd);
 
-	while(true)
-	{
-		mqd_t mqs = mq_send(smqClientSend, "T", 2048, 0);
-		if (mqs == (mqd_t)-1) {
+    cout << "mq opened"<< endl;
+
+	// while(true)
+	// {
+		rtnval = mq_send (mq_fd, (char *) &req, sizeof (req), 0);
+
+        getattr(mq_fd);
+		if (rtnval == -1) {
         	perror("mq_send()");
         	exit(1);
         }
 		cout << "sent message" << endl;
-	    usleep(1000000);
-	}
+	//     usleep(1000000);
+	// }
 }

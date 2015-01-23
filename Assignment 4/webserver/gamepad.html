@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<title>Gamepad</title>
+<style>
+body {
+	padding: 0;
+	margin: 0;
+	background: #333;
+	color: #FFF;
+	font-family: Helvetica, Arial, sans-serif;
+}
+#json {
+	padding: 1em;
+	font-size: 1em;
+}
+#buttons {
+	padding: 1em;
+	font-size: 1em;
+}
+</style>
+<script type="text/javascript">
+	$(document).ready(function () {
+	    setInterval(function() {
+	    	$( "#json" ).load( "./cgi-bin/shm.out" );
+	    }, 1000);
+	    $("#snd").click(function(){
+		    $.post( "./cgi-bin/mq.out?" + $("#rumble").val() + "&" + $("#led").val());
+		});
+	});	
+</script>
+</head>
+
+<body>
+<div id="json">Loading...</div>
+<div id="buttons">
+	Rumble: 
+	<select id="rumble">
+		<option>true</option>
+		<option>false</option>
+	</select> 
+	Led: 
+	<select id="led">
+		<option>1</option>
+		<option>2</option>
+		<option>3</option>
+		<option>4</option>
+		<option>5</option>
+	</select> 
+	<input type="button" id="snd" name="snd" value="Send" />
+</div>
+
+</body>
+</html>

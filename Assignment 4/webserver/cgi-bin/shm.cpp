@@ -16,19 +16,15 @@ SharedMemory * shm;
 int main(int argc, char* argv[]) {
 	sem = new Semaphore("ShmSem");
     sem->newSemaphore();
-    cout << "sem opened" << endl;
 
     shm = new SharedMemory("Shm", 2048);
-    cout << "shm opened" << endl;
-	while(true)
-	{
-		cout << "calling semwait" << endl;
-	    sem->waitSemaphore();
 
-	    cout << shm->getData() << endl;
+    sem->waitSemaphore();
 
-	    cout << "calling sempost" << endl;
-	    sem->postSemaphore();
-	    usleep(1000000);
-	}
+	cout << "Content-Type: application/json" << endl << endl;
+    cout << shm->getData() << endl;
+
+    sem->postSemaphore();
+
+    return 0;
 }

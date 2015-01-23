@@ -28,36 +28,30 @@ int dPadUp, dPadDown, dPadLeft, dPadRight, startBtn, backBtn, lsP, rsP, lbBtn, r
 uint8_t lTrg, rTrg;
 int16_t lXaxis, lYaxis, rXaxis, rYaxis;
 
+typedef struct
+{
+    // a data structure with 3 members
+    bool rumble;
+    unsigned char ledMode;
+} MQ_REQUEST_MESSAGE;
 
-
-// message queue listener
-void* messageQueueListener(void* argument) {
+static void 
+getattr (mqd_t mq_fd)
+{
+    struct mq_attr      attr;
+    int                 rtnval;
     
-    // read message queue and send to all clients
-    mqd_t messageQueueIDReceiver = mq_open("/MQ", O_RDONLY | O_CREAT, 0644, &attr);
-    if (messageQueueIDReceiver == (mqd_t)-1) {
-        perror("Receiver: mq_open()");
-        exit(1);
-    }       
-    
-    // buffer
-    char buffer[2048];      
-        
-    // loop
-    while(true){   
-        ssize_t bytes_read;
-        
-        // receive message, blocks till a new message is received
-        bytes_read = mq_receive(messageQueueIDReceiver, buffer, 2048, 0);                    
-        buffer[bytes_read] = '\0';  
-        
-        
-        std::cout << "Message Received :" << buffer << std::endl; 
-        
+    rtnval = mq_getattr (mq_fd, &attr);
+    if (rtnval == -1)
+    {
+        perror ("mq_getattr() failed");
     }
+    fprintf (stderr, "%d: mqdes=%d max=%ld size=%ld nrof=%ld\n",
+                getpid(), 
+                mq_fd, attr.mq_maxmsg, attr.mq_msgsize, attr.mq_curmsgs);
 }
 
-void sendMQUpdateToControllers(vector<XboxController *> ctrls, bool rumble, unsigned char ledMode) {
+static void sendMQUpdateToControllers(vector<XboxController *> ctrls, bool rumble, unsigned char ledMode) {
     for (unsigned int i = 0; i < ctrls.size(); i++) {
         if(rumble){
             ctrls[i]->rumbleMax();
@@ -68,7 +62,42 @@ void sendMQUpdateToControllers(vector<XboxController *> ctrls, bool rumble, unsi
         }   
         ctrls[i]->setLeds(ledMode);
     }
-    cout << "MQ Stuff" << endl;
+}
+
+// message queue listener
+void* messageQueueListener(void* argument) {
+    
+    // read message queue and send to all clients
+    mqd_t               mq_fd = -1;
+    struct              mq_attr attr;
+    int                 bytes_read = -1;
+    MQ_REQUEST_MESSAGE  req;
+
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = sizeof (MQ_REQUEST_MESSAGE);
+
+    mq_fd = mq_open("/MQ1337", O_RDONLY | O_CREAT, 0666, &attr);
+    if (mq_fd == (mqd_t)-1) {
+        perror("mq_open()");
+        exit(1);
+    }
+
+    getattr(mq_fd);      
+        
+    // loop
+    while(true){           
+        // receive message, blocks till a new message is received
+        bytes_read = mq_receive (mq_fd, (char *) &req, sizeof (req), NULL);
+        if (bytes_read == -1) {
+            perror("mq_receive()");
+            exit(1);
+        }
+        
+        std::cout << "Message Received" << std::endl; 
+        
+        sendMQUpdateToControllers(controllers, req.rumble, req.ledMode);
+
+    }
 }
 
 void generalCallback(XboxController * caller, ControllerStatus * previous, ControllerStatus * current)
@@ -255,30 +284,30 @@ void generalCallback(XboxController * caller, ControllerStatus * previous, Contr
     stringstream ss;
 
     ss << "{";
-        ss << "'dpad':{";
-            ss << "'up':" << dPadUp << ",";
-            ss << "'down':" << dPadDown << ",";
-            ss << "'left':" << dPadLeft << ",";
-            ss << "'right':" << dPadRight << "},";
-        ss << "'start:'" << startBtn << ",";
-        ss << "'back:'" << backBtn << ",";
-        ss << "'xbox:'" << xboxBtn << ",";
-        ss << "'leftstick':{";
-            ss << "'press:'" << lsP << ",";
-            ss << "'x:'" << hex << (int16_t) current->getLeftStickXAxis() << ",";
-            ss << "'y:'" << hex << (int16_t) current->getLeftStickYAxis() << "},";
-        ss << "'rightstick':{";
-            ss << "'press:'" << rsP << ",";
-            ss << "'x:'" << hex << (int16_t) current->getRightStickXAxis() << ",";
-            ss << "'y:'" << hex << (int16_t) current->getRightStickYAxis() << "},";
-        ss << "'a:'" << aBtn << ",";
-        ss << "'b:'" << bBtn << ",";
-        ss << "'x:'" << xBtn << ",";
-        ss << "'y:'" << yBtn << ",";
-        ss << "'leftback:'" << lbBtn << ",";
-        ss << "'rightback:'" << rbBtn << ",";
-        ss << "'lefttrigger:'" << hex << (int) current->getLeftTrigger() << ",";
-        ss << "'righttrigger:'" << hex << (int) current->getRightTrigger();
+        ss << "\"dpad\":{";
+            ss << "\"up\":" << dPadUp << ",";
+            ss << "\"down\":" << dPadDown << ",";
+            ss << "\"left\":" << dPadLeft << ",";
+            ss << "\"right\":" << dPadRight << "},";
+        ss << "\"start\":" << startBtn << ",";
+        ss << "\"back\":" << backBtn << ",";
+        ss << "\"xbox\":" << xboxBtn << ",";
+        ss << "\"leftstick\":{";
+            ss << "\"press\":" << lsP << ",";
+            ss << "\"x\":" << dec << (int16_t) current->getLeftStickXAxis() << ",";
+            ss << "\"y\":" << dec << (int16_t) current->getLeftStickYAxis() << "},";
+        ss << "\"rightstick\":{";
+            ss << "\"press\":" << rsP << ",";
+            ss << "\"x\":" << dec << (int16_t) current->getRightStickXAxis() << ",";
+            ss << "\"y\":" << dec << (int16_t) current->getRightStickYAxis() << "},";
+        ss << "\"a\":" << aBtn << ",";
+        ss << "\"b\":" << bBtn << ",";
+        ss << "\"x\":" << xBtn << ",";
+        ss << "\"y\":" << yBtn << ",";
+        ss << "\"leftback\":" << lbBtn << ",";
+        ss << "\"rightback\":" << rbBtn << ",";
+        ss << "\"lefttrigger\":" << dec << (int) current->getLeftTrigger() << ",";
+        ss << "\"righttrigger\":" << dec << (int) current->getRightTrigger();
     ss << "}" << endl;
 
     string buf = ss.str();
@@ -328,31 +357,5 @@ int main(int argc, char* argv[]) {
             controllers[i]->setGeneralCallback(generalCallback);
             controllers[i]->startMonitoring();
         }
-
-        /*
-        int result = mq_receive(mqReceive, bufferReceive, BUFFERLENGTH, NULL);
-        if (result != -1) {
-            bufferReceive[result] = '\0';
-            cout << "msq received: " << bufferReceive << endl;
-            ServerToClientMessage* sm = new ServerToClientMessage();
-            sm = js.convertJsonToServerToClientMessage(bufferReceive);
-            if (sm->getClientId() != 0) {
-                clientId = sm->getClientId();
-                sendControllerUpdate();
-            }
-            vector<ControllerCommand *> controllerCommands;
-            controllerCommands = sm->getControllerCommands();
-
-            for (unsigned int i = 0; i < controllerCommands.size(); i++) {
-                for(unsigned int j = 0; j < controllers.size(); j++) {
-                    if(controllerCommands[i]->getControllerId() == controllers[j]->getControllerId())
-                    {
-                        controllers[j]->setLeds(controllerCommands[i]->getLedCircle());
-                        controllers[j]->rumbleVariable(controllerCommands[i]->getVibrate());
-                    }
-                }
-            }
-            cout << "msq received end" << endl;
-        }*/
     }
 }
